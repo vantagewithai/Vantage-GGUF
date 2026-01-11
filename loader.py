@@ -66,8 +66,8 @@ def get_gguf_metadata(reader):
         except:
             continue
     return metadata
-    
-def gguf_sd_loader(path, handle_prefix="model.diffusion_model.", return_arch=False, is_text_model=False):
+
+def gguf_sd_loader(path, handle_prefix="model.diffusion_model.", is_text_model=False):
     """
     Read state dict as fake tensors
     """
@@ -154,11 +154,13 @@ def gguf_sd_loader(path, handle_prefix="model.diffusion_model.", return_arch=Fal
     if len(qsd) > 0:
         max_key = max(qsd.keys(), key=lambda k: qsd[k].numel())
         state_dict[max_key].is_largest_weight = True
-    
-    metadata = get_gguf_metadata(reader)
-    if return_arch:
-        return (state_dict, arch_str, metadata)
-    return (state_dict, metadata)
+
+    # extra info to return
+    extra = {
+        "arch_str": arch_str,
+        "metadata": get_gguf_metadata(reader)
+    }
+    return (state_dict, extra)
 
 # for remapping llama.cpp -> original key names
 T5_SD_MAP = {
@@ -266,7 +268,7 @@ def gguf_mmproj_loader(path):
 
     logging.info(f"Using mmproj '{target[0]}' for text encoder '{tenc_fname}'.")
     target = os.path.join(root, target[0])
-    vsd = gguf_sd_loader(target, is_text_model=True)
+    vsd, _ = gguf_sd_loader(target, is_text_model=True)
 
     # concat 4D to 5D
     if "v.patch_embd.weight.1" in vsd:
@@ -395,7 +397,8 @@ def gguf_tekken_tokenizer_loader(path, temb_shape):
     return torch.ByteTensor(list(json.dumps(data).encode('utf-8')))
 
 def gguf_clip_loader(path):
-    sd, arch = gguf_sd_loader(path, return_arch=True, is_text_model=True)
+    sd, extra = gguf_sd_loader(path, is_text_model=True)
+    arch = extra.get("arch_str", None)
     if arch in {"t5", "t5encoder"}:
         temb_key = "token_embd.weight"
         if temb_key in sd and sd[temb_key].shape == (256384, 4096):
@@ -424,4 +427,3 @@ def gguf_clip_loader(path):
     else:
         pass
     return sd
-

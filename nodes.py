@@ -165,9 +165,9 @@ class UnetLoaderGGUF:
 
         # init model
         unet_path = folder_paths.get_full_path("unet", unet_name)
-        sd, metadata = gguf_sd_loader(unet_path)
+        sd, extra = gguf_sd_loader(unet_path)
         model = comfy.sd.load_diffusion_model_state_dict(
-            sd, model_options={"custom_operations": ops}, metadata=metadata
+            sd, model_options={"custom_operations": ops}, metadata=extra.get("metadata", {})
         )
         if model is None:
             logging.error("ERROR UNSUPPORTED UNET {}".format(unet_path))
